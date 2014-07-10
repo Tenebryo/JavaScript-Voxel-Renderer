@@ -1,0 +1,169 @@
+<HTML>
+<DIV>
+	<canvas id="rendertarget" width=600 height=400 style="border:1px solid #000000;">
+	</canvas>
+	<SCRIPT>
+
+var RIGHT = 0;
+var LEFT = 1;
+var MIDDLE = 2;
+
+var c = document.getElementById("rendertarget");
+var ctx = c.getContext("2d");
+
+function generateVoxels()
+{
+	var voxels = {};
+	var lookup = [];
+	var fn = function(r, x, y, z, w, h, d)
+	{
+		if (d <= 0 || Math.random()*1000 < 500)
+		{
+			return {
+				solid : Math.random()*1000<500,
+				dim : [x, y, w, h],
+				children : null
+			};
+		}
+		return {
+			solid : (Math.random()*1000<500),
+			dim : [x, y, w, h],
+			children : [
+				fn(r-1, x,     y,     z,     w/2, h/2, d/2),
+				fn(r-1, x+w/2, y,     z,     w/2, h/2, d/2),
+				fn(r-1, x,     y+h/2, z,     w/2, h/2, d/2),
+				fn(r-1, x+w/2, y+h/2, z,     w/2, h/2, d/2),
+				fn(r-1, x,     y,     z+d/2, w/2, h/2, d/2),
+				fn(r-1, x+w/2, y,     z+d/2, w/2, h/2, d/2),
+				fn(r-1, x,     y+h/2, z+d/2, w/2, h/2, d/2),
+				fn(r-1, x+w/2, y+h/2, z+d/2, w/2, h/2, d/2)
+			]
+		};
+	};
+	return fn(9, 0, 0, 512, 512);
+}
+
+var voxels = generateVoxels();
+
+function AABBRayIntersect(minB, maxB, origin, dir, coord)
+{
+	var inside = true;
+	var quadrant = [0, 0, 0];
+	var whichPlane = 0;
+	var maxT = [0.0, 0.0, 0.0];
+	for (i=0; i<3; i++)
+	{
+		if(origin[i] < minB[i]) {
+			quadrant[i] = LEFT;
+			candidatePlane[i] = minB[i];
+			inside = FALSE;
+		}else if (origin[i] > maxB[i]) {
+			quadrant[i] = RIGHT;
+			candidatePlane[i] = maxB[i];
+			inside = FALSE;
+		}else	{
+			quadrant[i] = MIDDLE;
+		}
+	}
+
+	/* Ray origin inside bounding box */
+	if(inside)	{
+		coord = origin;
+		return (TRUE);
+	}
+
+	/* Calculate T distances to candidate planes */
+	for (i = 0; i < NUMDIM; i++)
+	{
+		if (quadrant[i] != MIDDLE && dir[i] !=0.)
+			maxT[i] = (candidatePlane[i]-origin[i]) / dir[i];
+		else
+			maxT[i] = -1.;
+	}
+
+	/* Get largest of the maxT's for final choice of intersection */
+	whichPlane = 0;
+	for (i = 1; i < NUMDIM; i++)
+	{
+		if (maxT[whichPlane] < maxT[i])
+		{
+			whichPlane = i;
+		}
+	}
+
+	/* Check final candidate actually inside box */
+	if (maxT[whichPlane] < 0.) return (FALSE);
+	for (i = 0; i < NUMDIM; i++)
+	{
+		if (whichPlane != i) 
+		{
+			coord[i] = origin[i] + maxT[whichPlane] *dir[i];
+			if (coord[i] < minB[i] || coord[i] > maxB[i])
+			{
+				return FALSE;
+			}
+		}
+		else
+		{
+			coord[i] = candidatePlane[i];
+		}
+	}
+	return TRUE;	
+}
+
+function RayTrace(ox, oy, oz, dx, dy, dz, v)
+{
+	var coord = [0.0, 0.0, 0.0];
+	//if(AABBRayIntersect(
+}
+
+var drawLoop = function() {
+	var pxData = ctx.getImageData(0, 0, c.width, c.height);
+	var i = 0;
+	for(var x = 0; x < c.width; x++)
+	{
+		for(var y = 0; y < c.height; y++)
+		{
+			pxData.data[i++] = Math.floor(Math.random()*256);
+			pxData.data[i++] = Math.floor(Math.random()*256);
+			pxData.data[i++] = Math.floor(Math.random()*256);
+			pxData.data[i++] = 255;
+		}
+	}
+	ctx.putImageData(pxData, 0, 0);
+};
+
+var mainLoop = function() {
+	drawLoop();
+};
+
+var animFrame = window.requestAnimationFrame ||
+		window.webkitRequestAnimationFrame ||
+		window.mozRequestAnimationFrame    ||
+		window.oRequestAnimationFrame      ||
+		window.msRequestAnimationFrame     ||
+		null;
+
+if (animFrame !== null)
+{
+	console.log("Webkit");
+	var recurAnim = function() {
+		mainLoop();
+		animFrame( recurAnim, c );
+	}
+
+	animFrame( recurAnim, c );
+}
+else
+{
+	console.log("WARNING: requestAnimationFrame() not available, falling back on setInterval. Performance may suffer.")
+	var ONE_FRAME_TIME = 1000/60;
+	setInterval( mainLoop, ONE_FRAME_TIME );
+}
+
+
+
+
+	</SCRIPT>
+</DIV>
+</HTML>
